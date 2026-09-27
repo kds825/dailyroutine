@@ -1,3 +1,4 @@
+import {resumeSet} from './resume.mjs';
 import {freshState,migrate,view,newSet,applyAction,modules} from './lib/catalog.mjs';
 const database=new Promise((resolve,reject)=>{const r=indexedDB.open('morning-lab-device-'+new URL('./',import.meta.url).pathname,1);r.onupgradeneeded=()=>r.result.createObjectStore('records');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
 let queue=Promise.resolve();
@@ -20,15 +21,15 @@ export function deviceApi(url,body={},setId=''){
    if(!next.instances||!next.sets||!next.attempts)throw Error('백업 형식을 확인해주세요.');
    view(next);store.put(data,'before-import');Object.keys(data).forEach(k=>delete data[k]);Object.assign(data,next);return {ok:true};
   }
-  if(url==='/api/refresh'){const id=newSet(data,new Date(),setId,body.module||'',body.index);return view(data,new Date(),id);}
+  if(url==='/api/refresh'){const id=newSet(data,new Date(),setId,body.module||'',body.index);data.activeSetId=id;return view(data,new Date(),id);}
   if(url==='/api/resume'){
    const lesson=data.instances[body.lessonId];if(!lesson)throw Error('수업을 찾을 수 없어요.');
-   const id=newSet(data,new Date(),setId);data.sets[id].lessons[lesson.module]=lesson.id;return {state:view(data,new Date(),id),module:lesson.module};
+   const id=newSet(data,new Date(),setId);data.sets[id].lessons[lesson.module]=lesson.id;data.activeSetId=id;return {state:view(data,new Date(),id),module:lesson.module};
   }
   if(url==='/api/action'){
    const a={...body};if(a.module&&['quiz','complete','draft'].includes(a.type)&&setId){const id=data.sets[setId]?.lessons[a.module];if(!id||(a.lessonId&&a.lessonId!==id))throw Error('수업이 변경됐어요. 다시 열어주세요.');a.lessonId=id;}applyAction(data,a);return view(data,new Date(),setId);
   }
-  if(url==='/api/state')return view(data,new Date(),setId);
+  if(url==='/api/state')return view(data,new Date(),setId||resumeSet(data));
   throw Error('AI 질문은 ChatGPT로 가져가기 버튼을 이용해주세요.');
  });
  const result=queue.then(task,task);queue=result.catch(()=>{});return result;

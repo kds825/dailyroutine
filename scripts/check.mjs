@@ -15,3 +15,11 @@ const restored=migrate(JSON.parse(JSON.stringify(state)));assert.equal(restored.
 const next=newSet(restored,new Date(),id,'history');assert.notEqual(view(restored,new Date(),next).lessons.history.question,l.question);
 for(const name of ['pyodide.mjs','pyodide.asm.mjs','pyodide.asm.wasm','python_stdlib.zip','LICENSE'])assert.ok(existsSync('public/runtime/'+name),name);
 console.log('Passed: syntax, Pages paths, lesson counts, quiz persistence, next lesson, Python assets.');
+
+const {resumeSet}=await import('../public/resume.mjs');
+const saved=migrate(freshState());const first=resumeSet(saved,new Date('2026-09-27T00:00:00Z'));
+const savedLesson=saved.sets[first].lessons.python;saved.drafts[savedLesson]='print(42)';
+const reopened=JSON.parse(JSON.stringify(saved));assert.equal(resumeSet(reopened,new Date('2026-09-28T00:00:00Z')),first);assert.equal(reopened.drafts[savedLesson],'print(42)');assert.equal(Object.keys(reopened.sets).length,1);
+delete reopened.activeSetId;assert.equal(resumeSet(reopened),first);
+const advanced=newSet(reopened,new Date(),first,'python');reopened.activeSetId=advanced;assert.equal(resumeSet(reopened),advanced);assert.equal(reopened.sets[first].lessons.history,reopened.sets[advanced].lessons.history);
+console.log('Passed: reload, next-day resume, draft retention, upgrade recovery, explicit next.');
