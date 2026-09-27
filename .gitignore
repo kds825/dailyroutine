@@ -1,0 +1,7 @@
+node_modules/
+data/
+.env*
+.codex/
+.openai/
+*.log
+test-results/

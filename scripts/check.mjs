@@ -1,0 +1,17 @@
+import {readFileSync,readdirSync,existsSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import assert from 'node:assert/strict';
+import {bank,freshState,migrate,newSet,view,applyAction} from '../public/lib/catalog.mjs';
+for(const file of readdirSync('public',{recursive:true}).filter(x=>/\.(m?js)$/.test(x)&&!x.startsWith('runtime')))execFileSync(process.execPath,['--check','public/'+file]);
+const manifest=JSON.parse(readFileSync('public/manifest.webmanifest','utf8'));
+assert.equal(manifest.start_url,'./');assert.equal(manifest.scope,'./');
+for(const icon of manifest.icons)assert.ok(existsSync('public/'+icon.src));
+assert.ok(!/(?:href|src)="\/(?!\/)/.test(readFileSync('public/index.html','utf8')),'Use relative asset URLs for project Pages');
+assert.equal(bank.history.length,108);assert.equal(bank.words.length,140);assert.equal(bank.python.length,25);
+const state=migrate(freshState()),id=newSet(state),l=view(state,new Date(),id).lessons.history;
+applyAction(state,{type:'quiz',module:'history',lessonId:l.id,date:l.date,answer:(l.answer+1)%3});
+assert.equal(state.notes.length,1);
+const restored=migrate(JSON.parse(JSON.stringify(state)));assert.equal(restored.notes.length,1);
+const next=newSet(restored,new Date(),id,'history');assert.notEqual(view(restored,new Date(),next).lessons.history.question,l.question);
+for(const name of ['pyodide.mjs','pyodide.asm.mjs','pyodide.asm.wasm','python_stdlib.zip','LICENSE'])assert.ok(existsSync('public/runtime/'+name),name);
+console.log('Passed: syntax, Pages paths, lesson counts, quiz persistence, next lesson, Python assets.');
